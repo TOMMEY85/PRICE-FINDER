@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "PRICE FINDER – Comparateur PC",
+  "version": "1.0.0",
+  "description": "Compare rapidement une pièce PC avec PRICE FINDER.",
+  "permissions": ["contextMenus", "activeTab", "storage"],
+  "host_permissions": ["http://127.0.0.1:8765/*", "http://localhost:8765/*"],
+  "action": {"default_title": "PRICE FINDER", "default_popup": "popup.html"},
+  "background": {"service_worker": "background.js"},
+  "content_scripts": [{"matches": ["<all_urls>"], "js": ["content.js"], "run_at": "document_idle"}]
+}
