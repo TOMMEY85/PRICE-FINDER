@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { extractIdentifiers } from "./matching.mjs";
 
 export function parsePrice(value){
   if(value == null) return null;
@@ -47,6 +48,12 @@ function walkJsonLd(node, acc=[]){
   return acc;
 }
 
+function firstImage(image){
+  if(Array.isArray(image)) return image.find(Boolean) || null;
+  if(typeof image === "object" && image?.url) return image.url;
+  return image || null;
+}
+
 export function productsFromJsonLd(html, baseUrl, sourceName){
   const $ = cheerio.load(html);
   const products = [];
@@ -57,8 +64,9 @@ export function productsFromJsonLd(html, baseUrl, sourceName){
         const offers = Array.isArray(p.offers) ? p.offers[0] : p.offers;
         const price = parsePrice(offers?.price ?? offers?.lowPrice);
         if(!p.name || !price) continue;
+        const identifiers = extractIdentifiers(p);
         products.push({
-          id: String(p.sku || p.gtin13 || p.gtin || p.mpn || p.url || p.name),
+          id: String(identifiers.mpn || identifiers.ean || identifiers.gtin || identifiers.sku || p.url || p.name),
           source: sourceName,
           title: String(p.name).trim(),
           price,
@@ -66,10 +74,16 @@ export function productsFromJsonLd(html, baseUrl, sourceName){
           total: price,
           currency: offers?.priceCurrency || "EUR",
           url: absoluteUrl(offers?.url || p.url, baseUrl) || baseUrl,
-          image: absoluteUrl(Array.isArray(p.image) ? p.image[0] : p.image, baseUrl),
+          image: absoluteUrl(firstImage(p.image), baseUrl),
           condition: String(offers?.itemCondition || "").toLowerCase().includes("used") ? "USED" : "NEW",
           stock: offers?.availability || null,
-          reference: p.mpn || p.sku || p.gtin13 || p.gtin || null
+          reference: identifiers.mpn || identifiers.sku || identifiers.ean || identifiers.gtin || null,
+          mpn: identifiers.mpn,
+          ean: identifiers.ean,
+          gtin: identifiers.gtin,
+          sku: identifiers.sku,
+          brand: identifiers.brand,
+          model: identifiers.model
         });
       }
     } catch {}
@@ -80,7 +94,7 @@ export function productsFromJsonLd(html, baseUrl, sourceName){
 export function dedupeProducts(products){
   const seen = new Set();
   return products.filter(product => {
-    const key = `${product.source}|${product.url}|${product.title}|${product.price}`;
+    const key = `${product.source}|${product.mpn || product.ean || product.gtin || product.sku || product.url}|${product.price}`;
     if(seen.has(key)) return false;
     seen.add(key);
     return true;
