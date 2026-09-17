@@ -10,6 +10,7 @@ export default async(req)=>{
   const active=SOURCES.filter(s=>requested.length===0||requested.includes(s.id));
   if(!active.length)return Response.json({error:"Aucune source sélectionnée."},{status:400});
 
+  const requiresVerification=/\b(?:ssd|nvme|rtx|gtx|rx|radeon|geforce|arc)\b/i.test(q);
   const settled=await Promise.allSettled(active.map(source=>scrapeSource(source,q)));
   const sources=[]; let items=[]; const failures=[];
   settled.forEach((result,index)=>{
@@ -17,8 +18,9 @@ export default async(req)=>{
     if(result.status==="fulfilled"){
       const raw=result.value.items||[];
       const exact=raw.filter(item=>matchesProductQuery(item,q));
-      sources.push({id:source.id,name:source.name,ok:true,count:exact.length,message:exact.length?null:"Aucun produit correspondant exactement."});
-      items.push(...exact);
+      const usable=requiresVerification ? exact.filter(item=>item.verifiedPrice===true || item.verified===true) : exact;
+      sources.push({id:source.id,name:source.name,ok:true,count:usable.length,message:usable.length?null:(requiresVerification?"Aucune offre dont le prix a été vérifié sur la fiche produit.":"Aucun produit correspondant exactement.")});
+      items.push(...usable);
     }else{
       const message=result.reason?.name==="AbortError"?"Délai dépassé":(result.reason?.message||"Erreur inconnue");
       sources.push({id:source.id,name:source.name,ok:false,count:0,message});
@@ -29,6 +31,6 @@ export default async(req)=>{
   items=items.filter(x=>Number.isFinite(Number(x.total))&&Number(x.total)>0)
     .sort((a,b)=>Number(a.total)-Number(b.total));
 
-  return Response.json({query:q,items,sources,updatedAt:new Date().toISOString(),warning:failures.length?`Certaines sources n'ont pas répondu : ${failures.join(" • ")}`:null});
+  return Response.json({query:q,items,sources,updatedAt:new Date().toISOString(),verificationRequired:requiresVerification,warning:failures.length?`Certaines sources n'ont pas répondu : ${failures.join(" • ")}`:null});
 };
 export const config={path:"/api/search"};
