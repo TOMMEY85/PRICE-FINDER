@@ -3,6 +3,7 @@ import { searchLDLC } from "./ldlc.mjs";
 import { searchGrosbill } from "./grosbill.mjs";
 import { searchMateriel } from "./materiel.mjs";
 import { searchRueDuCommerce } from "./rueducommerce.mjs";
+import { searchBoulanger } from "./boulanger.mjs";
 
 export const SOURCES=[
   {id:"grosbill",name:"Grosbill",base:"https://www.grosbill.com",adapter:searchGrosbill},
@@ -14,6 +15,6 @@ export const SOURCES=[
   {id:"infomax",name:"Infomax Paris",base:"https://infomaxparis.com",search:q=>`https://infomaxparis.com/search?q=${encodeURIComponent(q)}`},
   {id:"memorypc",name:"Memory PC",base:"https://www.memorypc.fr",search:q=>`https://www.memorypc.fr/search?sSearch=${encodeURIComponent(q)}`},
   {id:"pcspecialist",name:"PCSpecialist.fr",base:"https://www.pcspecialist.fr",search:q=>`https://www.pcspecialist.fr/search/?query=${encodeURIComponent(q)}`},
-  {id:"boulanger",name:"Boulanger",base:"https://www.boulanger.com",search:q=>`https://www.boulanger.com/resultats?tr=${encodeURIComponent(q)}`},
+  {id:"boulanger",name:"Boulanger",base:"https://www.boulanger.com",adapter:searchBoulanger},
   {id:"maxesport",name:"Maxesport",base:"https://www.maxesport.gg",search:q=>`https://www.maxesport.gg/fr/recherche?controller=search&s=${encodeURIComponent(q)}`}
 ];
