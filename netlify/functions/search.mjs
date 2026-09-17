@@ -1,6 +1,6 @@
 import {SOURCES} from "./sources/config.mjs";
 import {scrapeSource} from "./sources/scraper.mjs";
-import {matchesProductQuery} from "./sources/matching.mjs";
+import {matchesProductQuery, requiresHardwareVerification} from "./sources/matching.mjs";
 
 export default async(req)=>{
   const url=new URL(req.url);
@@ -10,7 +10,7 @@ export default async(req)=>{
   const active=SOURCES.filter(s=>requested.length===0||requested.includes(s.id));
   if(!active.length)return Response.json({error:"Aucune source sélectionnée."},{status:400});
 
-  const requiresVerification=/\b(?:ssd|nvme|rtx|gtx|rx|radeon|geforce|arc)\b/i.test(q);
+  const requiresVerification=requiresHardwareVerification(q);
   const settled=await Promise.allSettled(active.map(source=>scrapeSource(source,q)));
   const sources=[]; let items=[]; const failures=[];
   settled.forEach((result,index)=>{
