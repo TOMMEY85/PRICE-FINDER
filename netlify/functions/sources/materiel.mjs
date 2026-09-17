@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import { parsePrice, absoluteUrl, productsFromJsonLd, dedupeProducts, fetchHtml } from "./helpers.mjs";
+import { absoluteUrl, productsFromJsonLd, dedupeProducts, fetchHtml } from "./helpers.mjs";
 import { matchesProductQuery } from "./matching.mjs";
 
 const BASE="https://www.materiel.net";
@@ -7,33 +7,40 @@ const GPU_CATEGORY="https://www.materiel.net/carte-graphique/l426/";
 
 function isGpuQuery(q){ return /\b(?:rtx|gtx|rx|radeon|geforce|arc)\b/i.test(q); }
 
-function extractCards(html,q){
-  const $=cheerio.load(html); const out=[];
+function candidateUrls(html,q){
+  const $=cheerio.load(html); const urls=[];
   $("a[href*='/produit/']").each((_,a)=>{
-    const link=$(a), title=link.text().replace(/\s+/g," ").trim();
+    const link=$(a);
+    const title=link.text().replace(/\s+/g," ").trim();
     if(!title || !matchesProductQuery({title},q)) return;
-    const card=link.closest("article,li");
-    if(!card.length) return;
-    const text=card.text().replace(/\s+/g," ");
-    const prices=text.match(/\b\d{2,5}(?:[.,]\d{2})?\s*€/g)||[];
-    const price=parsePrice(prices[prices.length-1]);
-    if(!price) return;
-    const imageEl=card.find("img").first();
-    const image=imageEl.attr("src") || imageEl.attr("data-src") || imageEl.attr("data-lazy-src");
-    const reference=(text.match(/(?:Réf(?:érence)?|SKU)\s*[:#]?\s*([A-Z0-9_-]+)/i)||[])[1]||null;
-    out.push({
-      id:absoluteUrl(link.attr("href"),BASE),source:"Materiel.net",title,price,shipping:null,total:price,currency:"EUR",
-      url:absoluteUrl(link.attr("href"),BASE)||BASE,image:absoluteUrl(image,BASE),condition:/reconditionn|occasion|destockage/i.test(text)?"USED":"NEW",
-      stock:/en stock/i.test(text)?"IN_STOCK":/rupture|indisponible/i.test(text)?"OUT_OF_STOCK":null,reference,
-      mpn:null,ean:null,gtin:null,sku:reference,brand:null,model:null
-    });
+    const url=absoluteUrl(link.attr("href"),BASE);
+    if(url && !urls.includes(url)) urls.push(url);
   });
-  return dedupeProducts(out);
+  return urls.slice(0,10);
+}
+
+async function verifyProductPage(url,q){
+  try{
+    const html=await fetchHtml(url,{timeout:12000});
+    const products=productsFromJsonLd(html,url,"Materiel.net")
+      .filter(p=>matchesProductQuery(p,q));
+    if(!products.length) return null;
+    const p=products[0];
+    return {...p,url:p.url||url,total:p.price,shipping:null,verifiedPrice:true};
+  }catch{return null;}
 }
 
 export async function searchMateriel(q){
-  const url=isGpuQuery(q) ? GPU_CATEGORY : `https://www.materiel.net/recherche/${encodeURIComponent(q)}.html`;
-  const html=await fetchHtml(url,{timeout:12000});
-  const json=productsFromJsonLd(html,BASE,"Materiel.net").filter(p=>matchesProductQuery(p,q));
-  return dedupeProducts(json.length?json:extractCards(html,q));
+  const listingUrl=isGpuQuery(q) ? GPU_CATEGORY : `https://www.materiel.net/recherche/${encodeURIComponent(q)}.html`;
+  const html=await fetchHtml(listingUrl,{timeout:12000});
+
+  const listingJson=productsFromJsonLd(html,BASE,"Materiel.net")
+    .filter(p=>matchesProductQuery(p,q));
+  const urls=[...new Set([
+    ...listingJson.map(p=>p.url).filter(Boolean),
+    ...candidateUrls(html,q)
+  ])].slice(0,10);
+
+  const checked=await Promise.all(urls.map(url=>verifyProductPage(url,q)));
+  return dedupeProducts(checked.filter(Boolean));
 }
