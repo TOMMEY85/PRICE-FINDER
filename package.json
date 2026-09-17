@@ -17,10 +17,10 @@
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "cheerio": "^1.1.2",
-    "electron": "^38.1.0",
     "express": "^5.1.0"
   },
   "devDependencies": {
+    "electron": "^38.1.0",
     "netlify-cli": "^23.9.2",
     "electron-builder": "^26.0.12"
   },
