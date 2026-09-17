@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import { extractIdentifiers } from "./matching.mjs";
+import { extractIdentifiers, matchesProductQuery } from "./matching.mjs";
 
 export function parsePrice(value){
   if(value == null) return null;
@@ -29,22 +29,15 @@ export async function fetchHtml(url, {timeout=10000, userAgent="Mozilla/5.0 (Win
     });
     if(!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.text();
-  } finally {
-    clearTimeout(timer);
-  }
+  } finally { clearTimeout(timer); }
 }
 
 function walkJsonLd(node, acc=[]){
   if(!node || typeof node !== "object") return acc;
-  if(Array.isArray(node)){
-    node.forEach(x => walkJsonLd(x, acc));
-    return acc;
-  }
+  if(Array.isArray(node)){ node.forEach(x => walkJsonLd(x, acc)); return acc; }
   const type = node["@type"];
   if(type === "Product" || (Array.isArray(type) && type.includes("Product"))) acc.push(node);
-  Object.values(node).forEach(value => {
-    if(value && typeof value === "object") walkJsonLd(value, acc);
-  });
+  Object.values(node).forEach(value => { if(value && typeof value === "object") walkJsonLd(value, acc); });
   return acc;
 }
 
@@ -54,7 +47,7 @@ function firstImage(image){
   return image || null;
 }
 
-export function productsFromJsonLd(html, baseUrl, sourceName){
+function jsonLdProducts(html, baseUrl, sourceName){
   const $ = cheerio.load(html);
   const products = [];
   $("script[type='application/ld+json']").each((_, el) => {
@@ -69,6 +62,7 @@ export function productsFromJsonLd(html, baseUrl, sourceName){
           id: String(identifiers.mpn || identifiers.ean || identifiers.gtin || identifiers.sku || p.url || p.name),
           source: sourceName,
           title: String(p.name).trim(),
+          description: p.description || null,
           price,
           shipping: null,
           total: price,
@@ -91,9 +85,67 @@ export function productsFromJsonLd(html, baseUrl, sourceName){
   return products;
 }
 
+export function productsFromJsonLd(html, baseUrl, sourceName){
+  return jsonLdProducts(html, baseUrl, sourceName);
+}
+
+function productFromDetailHtml(html, baseUrl, sourceName, query){
+  const structured = jsonLdProducts(html, baseUrl, sourceName).find(product => matchesProductQuery(product, query));
+  if(structured) return structured;
+
+  const $ = cheerio.load(html);
+  const title = $("h1").first().text().replace(/\s+/g," ").trim() || $("meta[property='og:title']").attr("content") || "";
+  const amount = $("meta[property='product:price:amount'],meta[itemprop='price']").first().attr("content") || $("[itemprop='price']").first().text();
+  const price = parsePrice(amount);
+  if(!title || !price || !matchesProductQuery({title}, query)) return null;
+  const image = $("meta[property='og:image']").attr("content") || $("img").first().attr("src");
+  return {
+    id: baseUrl,
+    source: sourceName,
+    title,
+    price,
+    shipping: null,
+    total: price,
+    currency: "EUR",
+    url: baseUrl,
+    image: absoluteUrl(image, baseUrl),
+    condition: "NEW",
+    stock: null,
+    reference: null,
+    mpn: null,
+    ean: null,
+    gtin: null,
+    sku: null,
+    brand: null,
+    model: null
+  };
+}
+
+export async function verifyProductPage(product, query, {timeout=10000}={}){
+  if(!product?.url) return null;
+  const html = await fetchHtml(product.url, {timeout});
+  const verified = productFromDetailHtml(html, product.url, product.source, query);
+  if(!verified) return null;
+  return {
+    ...product,
+    ...verified,
+    id: product.id || verified.id,
+    url: product.url,
+    verified: true,
+    verification: "product-page"
+  };
+}
+
+export async function verifyProducts(products, query, {limit=12}={}){
+  const candidates = dedupeProducts(products).slice(0, limit);
+  const checked = await Promise.allSettled(candidates.map(product => verifyProductPage(product, query)));
+  return dedupeProducts(checked.map(result => result.status === "fulfilled" ? result.value : null).filter(Boolean));
+}
+
 export function dedupeProducts(products){
   const seen = new Set();
   return products.filter(product => {
+    if(!product) return false;
     const key = `${product.source}|${product.mpn || product.ean || product.gtin || product.sku || product.url}|${product.price}`;
     if(seen.has(key)) return false;
     seen.add(key);
