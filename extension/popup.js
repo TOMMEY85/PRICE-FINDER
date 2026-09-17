@@ -3,7 +3,7 @@ const go = document.getElementById('go');
 const status = document.getElementById('status');
 const results = document.getElementById('results');
 const params = new URLSearchParams(location.search);
-const tabId = Number(params.get('tabId')) || null;
+let tabId = Number(params.get('tabId')) || null;
 const forcedQuery = params.get('query') || '';
 
 function esc(value='') {
@@ -14,14 +14,23 @@ function formatPrice(value) {
   return Number(value).toLocaleString('fr-FR', {style:'currency', currency:'EUR'});
 }
 
+async function getActiveTabId() {
+  if (tabId) return tabId;
+  try {
+    const tabs = await chrome.tabs.query({active:true, currentWindow:true});
+    tabId = tabs?.[0]?.id || null;
+  } catch {}
+  return tabId;
+}
+
 async function detectPageProduct() {
   if (forcedQuery) return forcedQuery;
-  if (!tabId) return '';
+  const activeTabId = await getActiveTabId();
+  if (!activeTabId) return '';
   try {
-    const response = await chrome.tabs.sendMessage(tabId, {type:'getPageProduct'});
+    const response = await chrome.tabs.sendMessage(activeTabId, {type:'getPageProduct'});
     const product = response?.product;
     if (!product) return '';
-    // Prefer exact identifiers/model information over a noisy page title.
     return [product.brand, product.model, product.mpn, product.title].filter(Boolean).join(' ').slice(0,180);
   } catch {
     return '';
