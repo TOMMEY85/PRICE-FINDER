@@ -8,13 +8,8 @@ function normalize(value = "") {
     .trim();
 }
 
-function compact(value = "") {
-  return normalize(value).replace(/\s+/g, "");
-}
-
-function queryTokens(query) {
-  return normalize(query).split(" ").filter(token => token.length > 1);
-}
+function compact(value = "") { return normalize(value).replace(/\s+/g, ""); }
+function queryTokens(query) { return normalize(query).split(" ").filter(token => token.length > 1); }
 
 function gpuModel(query) {
   const q = normalize(query);
@@ -28,15 +23,16 @@ function gpuMatches(title, query) {
   if (!model) return null;
   const hay = normalize(title);
   const compactHay = compact(title);
-  const familyOk = model.family === "rx"
-    ? /\b(?:rx|radeon)\b/.test(hay)
-    : hay.includes(model.family);
+  const familyOk = model.family === "rx" ? /\b(?:rx|radeon)\b/.test(hay) : hay.includes(model.family);
   if (!familyOk) return false;
-  const numberOk = new RegExp(`\\b${model.number}\\b`).test(hay) || compactHay.includes(model.number);
-  if (!numberOk) return false;
-  if (!model.suffix) return true;
-  const suffixOk = new RegExp(`\\b${model.suffix}\\b`).test(hay) || compactHay.includes(`${model.number}${model.suffix}`);
-  return suffixOk;
+  if (!(new RegExp(`\\b${model.number}\\b`).test(hay) || compactHay.includes(model.number))) return false;
+  if (model.suffix && !(new RegExp(`\\b${model.suffix}\\b`).test(hay) || compactHay.includes(`${model.number}${model.suffix}`))) return false;
+
+  // Si la recherche contient une marque ou un modèle précis en plus du GPU,
+  // ces éléments doivent également être présents dans le produit.
+  const baseTokens = new Set([model.family, model.number, model.suffix].filter(Boolean));
+  const extras = queryTokens(query).filter(token => !baseTokens.has(token) && !/^\d+(?:gb|go|g)$/.test(token));
+  return extras.every(token => hay.includes(token) || compactHay.includes(compact(token)));
 }
 
 export function matchesProductQuery(product, query) {
@@ -45,19 +41,12 @@ export function matchesProductQuery(product, query) {
   if (gpu !== null) return gpu;
 
   const normalizedTitle = normalize([
-    title,
-    product?.brand,
-    product?.model,
-    product?.mpn,
-    product?.ean,
-    product?.gtin,
-    product?.sku
+    title, product?.brand, product?.model, product?.mpn,
+    product?.ean, product?.gtin, product?.sku
   ].filter(Boolean).join(" "));
-
   const compactTitle = compact(normalizedTitle);
   const tokens = queryTokens(query);
   if (!tokens.length) return false;
-
   return tokens.every(token => normalizedTitle.includes(token) || compactTitle.includes(compact(token)));
 }
 
