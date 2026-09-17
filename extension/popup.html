@@ -1,1 +1,20 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PRICE FINDER</title><style>body{margin:0;width:340px;background:#0b0b0e;color:#f5f5f5;font:14px Arial;padding:18px;box-sizing:border-box}h1{margin:0 0 6px;font-size:20px}h1 span{color:#e50914}p{color:#aaa;margin:0 0 14px}input{width:100%;box-sizing:border-box;background:#15151a;border:1px solid #333;border-radius:10px;color:white;padding:12px;margin-bottom:10px}button{width:100%;border:0;border-radius:10px;background:#e50914;color:white;font-weight:700;padding:12px;cursor:pointer}.hint{font-size:12px;color:#888;margin-top:12px}</style></head><body><h1>PRICE <span>FINDER</span></h1><p>Compare ta pièce PC chez tes revendeurs.</p><input id="q" placeholder="RTX 5070 Ti, Ryzen 9800X3D..."><button id="go">Comparer les prix</button><div class="hint">Tu peux aussi sélectionner un texte sur une page → clic droit → Comparer avec PRICE FINDER.</div><script src="popup.js"></script></body></html>
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRICE FINDER</title>
+<style>
+*{box-sizing:border-box}body{margin:0;width:100%;min-width:480px;height:100vh;background:#09090c;color:#f5f5f5;font:14px Arial,sans-serif}header{padding:18px 20px;border-bottom:1px solid #24242b;background:#0d0d11;position:sticky;top:0;z-index:5}h1{margin:0;font-size:22px;letter-spacing:.3px}h1 span{color:#e50914}#status{margin-top:5px;color:#999;font-size:12px}.search{display:flex;gap:8px;margin-top:14px}.search input{flex:1;min-width:0;background:#17171c;border:1px solid #34343c;border-radius:10px;color:#fff;padding:11px 12px;outline:none}.search input:focus{border-color:#e50914}.search button{border:0;border-radius:10px;background:#e50914;color:#fff;font-weight:700;padding:0 16px;cursor:pointer}.search button:disabled{opacity:.55;cursor:wait}main{padding:14px 20px 24px}.notice{background:#141419;border:1px solid #2a2a32;border-radius:10px;padding:10px 12px;color:#aaa;margin-bottom:12px}.product{display:flex;gap:12px;background:#111116;border:1px solid #25252d;border-radius:12px;padding:11px;margin-bottom:9px}.thumb{width:64px;height:64px;object-fit:contain;background:#fff;border-radius:8px;flex:none}.info{min-width:0;flex:1}.title{font-weight:700;line-height:1.3}.meta{color:#999;font-size:12px;margin-top:5px}.price{font-size:20px;font-weight:800;margin-top:6px}.verified{color:#57d38c;font-size:11px;font-weight:700}.source{color:#bbb}.open{display:inline-block;margin-top:7px;color:#fff;text-decoration:none;background:#24242b;border-radius:7px;padding:6px 9px;font-size:12px}.open:hover{background:#33333b}.best{border-color:#e50914}.badge{display:inline-block;background:#e50914;color:#fff;border-radius:5px;padding:3px 6px;font-size:10px;font-weight:800;margin-bottom:5px}.empty{color:#aaa;text-align:center;padding:35px 10px}.small{font-size:11px;color:#777;margin-top:10px}
+</style>
+</head>
+<body>
+<header>
+  <h1>PRICE <span>FINDER</span></h1>
+  <div id="status">Analyse de la page en cours…</div>
+  <div class="search"><input id="q" placeholder="RTX 5070 Ti, B650, DDR5 32 Go…"><button id="go">Comparer</button></div>
+</header>
+<main id="results"><div class="empty">Recherche automatique en cours…</div></main>
+<script src="popup.js"></script>
+</body>
+</html>
