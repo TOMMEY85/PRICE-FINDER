@@ -27,18 +27,55 @@ function gpuMatches(title, query) {
   if (!familyOk) return false;
   if (!(new RegExp(`\\b${model.number}\\b`).test(hay) || compactHay.includes(model.number))) return false;
   if (model.suffix && !(new RegExp(`\\b${model.suffix}\\b`).test(hay) || compactHay.includes(`${model.number}${model.suffix}`))) return false;
-
-  // Si la recherche contient une marque ou un modèle précis en plus du GPU,
-  // ces éléments doivent également être présents dans le produit.
   const baseTokens = new Set([model.family, model.number, model.suffix].filter(Boolean));
   const extras = queryTokens(query).filter(token => !baseTokens.has(token) && !/^\d+(?:gb|go|g)$/.test(token));
   return extras.every(token => hay.includes(token) || compactHay.includes(compact(token)));
+}
+
+function storageModel(query) {
+  const q = normalize(query);
+  if (!/\bssd\b/.test(q)) return null;
+  const capacity = q.match(/\b(\d+(?:[.,]\d+)?)\s*(to|tb|go|gb)\b/);
+  return {
+    capacity: capacity ? Number(capacity[1].replace(",", ".")) * (/go|gb/.test(capacity[2]) ? 1 / 1024 : 1) : null,
+    nvme: /\bnvme\b/.test(q),
+    m2: /\bm\s*2\b|\bm2\b/.test(q)
+  };
+}
+
+function storageMatches(product, query) {
+  const model = storageModel(query);
+  if (!model) return null;
+  const hay = normalize([
+    product?.title,
+    product?.model,
+    product?.mpn,
+    product?.sku,
+    product?.description,
+    product?.interface,
+    product?.formFactor,
+    product?.capacity
+  ].filter(Boolean).join(" "));
+  if (!/\bssd\b/.test(hay)) return false;
+  if (model.nvme && !/\bnvme\b/.test(hay)) return false;
+  if (model.m2 && !/(?:\bm\s*2\b|\bm2\b)/.test(hay)) return false;
+  if (model.capacity != null) {
+    const tb = hay.match(/\b(\d+(?:[.,]\d+)?)\s*(?:to|tb)\b/);
+    const gb = hay.match(/\b(\d{3,5})\s*(?:go|gb)\b/);
+    const detected = tb ? Number(tb[1].replace(",", ".")) : gb ? Number(gb[1]) / 1024 : null;
+    if (detected == null || Math.abs(detected - model.capacity) > 0.05) return false;
+  }
+  // A query explicitly asking for NVMe must never return SATA/AHCI-only products.
+  if (model.nvme && /\bsata\b/.test(hay) && !/\bnvme\b/.test(hay)) return false;
+  return true;
 }
 
 export function matchesProductQuery(product, query) {
   const title = product?.title || "";
   const gpu = gpuMatches(title, query);
   if (gpu !== null) return gpu;
+  const storage = storageMatches(product, query);
+  if (storage !== null) return storage;
 
   const normalizedTitle = normalize([
     title, product?.brand, product?.model, product?.mpn,
@@ -66,6 +103,8 @@ export function extractIdentifiers(product = {}) {
 
 export function queryFingerprint(query) {
   const model = gpuModel(query);
-  if (!model) return normalize(query);
-  return `${model.family} ${model.number}${model.suffix ? ` ${model.suffix}` : ""}`;
+  if (model) return `${model.family} ${model.number}${model.suffix ? ` ${model.suffix}` : ""}`;
+  const storage = storageModel(query);
+  if (storage) return `${storage.nvme ? "ssd nvme" : "ssd"}${storage.capacity != null ? ` ${storage.capacity}to` : ""}`;
+  return normalize(query);
 }
