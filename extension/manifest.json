@@ -1,15 +1,16 @@
 {
   "manifest_version": 3,
   "name": "PRICE FINDER – Comparateur PC",
-  "version": "1.1.0",
-  "description": "Compare automatiquement le produit de la page avec PRICE FINDER dans une petite fenêtre.",
+  "version": "1.2.0",
+  "description": "Compare automatiquement le produit de la page avec PRICE FINDER directement dans le navigateur.",
   "permissions": ["contextMenus", "activeTab", "storage"],
   "host_permissions": [
-    "https://price-finder.netlify.app/*",
-    "http://127.0.0.1:8765/*",
-    "http://localhost:8765/*"
+    "https://price-finder.netlify.app/*"
   ],
-  "action": {"default_title": "PRICE FINDER"},
+  "action": {
+    "default_title": "PRICE FINDER",
+    "default_popup": "popup.html"
+  },
   "background": {"service_worker": "background.js"},
   "content_scripts": [{"matches": ["<all_urls>"], "js": ["content.js"], "run_at": "document_idle"}]
 }
